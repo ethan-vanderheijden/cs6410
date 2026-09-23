@@ -37,8 +37,8 @@ fun eof() =
 %s STRING COMMENT;
 %%
 
-\n	=> (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
-[ \t\r]+ => (continue());
+<INITIAL>\n	=> (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
+<INITIAL>[ \t\r]+ => (continue());
 
 <INITIAL>"/*" => (myState := IN_COMMENT; commentDepth := 1; YYBEGIN COMMENT; continue());
 <COMMENT>"/*" => (commentDepth := !commentDepth + 1; continue());
@@ -56,16 +56,32 @@ fun eof() =
      continue());
 
 <INITIAL>\" => (myState := IN_STRING; stringStart := yypos; stringBuilder := ""; YYBEGIN STRING; continue());
+<STRING>\" => (myState := NORMAL; YYBEGIN INITIAL; Tokens.STRING(!stringBuilder, !stringStart, yypos + 1));
 
-<STRING>[^"\\]+ => (stringBuilder := !stringBuilder ^ yytext; continue());
+<STRING>[\032-\126] => (stringBuilder := !stringBuilder ^ yytext; continue());
 
 <STRING>\\\" => (stringBuilder := !stringBuilder ^ "\""; continue());
 <STRING>\\\\ => (stringBuilder := !stringBuilder ^ "\\"; continue());
 <STRING>\\t => (stringBuilder := !stringBuilder ^ "\t"; continue());
 <STRING>\\n => (stringBuilder := !stringBuilder ^ "\n"; continue());
-<STRING>\\. => (stringBuilder := !stringBuilder ^ String.str (String.sub (yytext, 1)); continue());
-
-<STRING>\" => (myState := NORMAL; YYBEGIN INITIAL; Tokens.STRING(!stringBuilder, !stringStart, yypos + 1));
+<STRING>\\[0-9]{3} => (let
+                         val digits = String.substring (yytext, 1, 3)
+                       in
+                         case Int.fromString digits of
+                           SOME code => if code >= 0 andalso code <= 255
+                                        then (stringBuilder := !stringBuilder ^ (str (Char.chr code)); continue())
+                                        else (ErrorMsg.error yypos ("illegal character code in literal string: " ^ yytext); continue())
+                           | NONE => (ErrorMsg.impossible digits ^ " must be an int"; continue())
+                       end);
+<STRING>\\\^[@-_] => (let
+                        val ltr = String.sub (yytext, 2)
+                      in
+                        stringBuilder := !stringBuilder ^ (str (Char.chr (ord ltr - 64)));
+                        continue()
+                      end);
+<STRING>\\[ \t\n\012]+\\ => (continue());
+<STRING>\\. => (ErrorMsg.error yypos ("illegal escape code in string: " ^ yytext); continue());
+<STRING>[.\n] => (ErrorMsg.error yypos ("string can only contain printable characters and escape codes: " ^ yytext); continue());
 
 <INITIAL>[0-9]+ => (Tokens.INT(valOf (Int.fromString yytext), yypos, yypos + size yytext));
 

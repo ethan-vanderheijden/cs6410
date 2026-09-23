@@ -1,1 +1,44 @@
-"a\n"
+/* Outer comment
+   /* nested comment */
+   /* level 2
+      /* level 3 */
+   */
+*/
+
+let
+  type point = { x: int, y: int }
+
+  var n := 12345
+  var p := point { x = 10, y = 20 }
+
+  function calc(a: int, b: int): int =
+    if a <= b then a + b
+    else if a <> b then a * b
+
+  var s := "hello\nworld\t\"quoted\"\\path"
+  var c := "control:\^C\^Z\^A"
+  var d := "decimal:\065\066\067"
+  var e := "  \ \hi"
+  var f := "formatting\   
+\tabs\	\  \
+  \newlines\
+\  end"
+
+in
+  p.x := calc(p.x, p.y);
+
+  if n >= 100 then
+    n := n - 1
+  else if n = 42 then
+    n := n + 2
+  else
+    n := 0;
+
+  while n > 0 do
+    n := n / 2;
+
+  a[0] := 99;
+  p.y := p.x + 1 - 2 * 3 / 4;
+
+  break
+end
